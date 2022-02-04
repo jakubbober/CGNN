@@ -30,11 +30,11 @@ def val(data, model):
     return accs
 
 
-def main(args, d_input, d_output):
+def main(args, d_input, d_output, curv_type):
     test_acc_list = []
     for i in range(args.num_expriment):
         data = load_data(args.data_path, args.dataset)
-        data, model = globals()[args.model].call(data, args, d_input, d_output)
+        data, model = globals()[args.model].call(data, args, d_input, d_output, curv_type)
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         best_val_acc = test_acc = 0.0
         best_val_loss = np.inf
@@ -45,6 +45,7 @@ def main(args, d_input, d_output):
         for epoch in range(0, args.epochs):
             train(data, model, optimizer)
             train_acc, val_acc, tmp_test_acc, val_loss = val(data, model)
+            val_loss = val_loss.cpu()
             ##########################
             val_loss_list.append(val_loss.item())
             tem_test_acc_list.append(tmp_test_acc)
@@ -54,7 +55,7 @@ def main(args, d_input, d_output):
                     early_val_acc = val_acc
                     early_val_loss = val_loss
                 best_val_acc = np.max((val_acc, best_val_acc))
-                best_val_loss = np.min((val_loss, best_val_loss))
+                best_val_loss = np.min((val_loss.detach().numpy(), best_val_loss))
                 wait_step = 0
             else:
                 wait_step += 1
@@ -78,10 +79,12 @@ if __name__ == '__main__':
                         help="Type of Negative Curvature Transformation Module", required=True)
     parser.add_argument('--CNM', type=str, choices=['symmetry-norm', '1-hop-norm', '2-hop-norm'],
                         help="Type of Curvature Normalization Module", required=True)
+    parser.add_argument('--curv_type', type=str, choices=['Forman', 'Olliver', 'Olliver_original'],
+                        help="Type of Discrete Curvature", required=True)
     parser.add_argument('--d_hidden', type=int, help="Dimension of the hidden node features", default=64)
     parser.add_argument('--epochs', type=int, help="The maximum iterations of training", default=200)
-    parser.add_argument('--num_expriment', type=int, help="The number of the repeating expriments", default=50)
-    parser.add_argument('--early_stop', type=int, help="Early stop", default=20)
+    parser.add_argument('--num_expriment', type=int, help="The number of the repeating expriments", default=20)
+    parser.add_argument('--early_stop', type=int, help="Early stop", default=0)
     parser.add_argument('--dropout', type=float, help="Dropout", default=0.5)
     parser.add_argument('--lr', type=float, help="Learning rate", default=0.005)
     parser.add_argument('--weight_decay', type=float, help="Weight decay", default=0.0005)
@@ -109,4 +112,4 @@ if __name__ == '__main__':
     args.model = 'CGNN'
     args.model_type = 'CGNN_{}_{}_{}'.format(args.NCTM, args.CNM, args.dropout)
     d_input, d_output = datasets_config[args.dataset]['d_input'], datasets_config[args.dataset]['d_output']
-    main(args, d_input, d_output)
+    main(args, d_input, d_output, args.curv_type)

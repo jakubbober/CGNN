@@ -79,11 +79,11 @@ def map_ricci(filename, dataset, num_nodes, map_type='linear', edge_index=None):
     return w_mul
 
 
-def call(data, arg, d_input, d_output, **kwargs):
+def call(data, arg, d_input, d_output, curv_type, **kwargs):
     d_hidden, dropout = 64, arg.dropout
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    filename = r'./data/Ricci/graph_' + arg.dataset + '.edge_list'
+    filename = rf'./data/{curv_type}/graph_' + arg.dataset + '.edge_list'
     ricci = map_ricci(filename, arg.dataset, data.num_nodes, map_type=arg.NCTM, edge_index=data.edge_index)
     ricci = torch.tensor(ricci, dtype=torch.float)
     data.edge_index, _ = add_self_loops(data.edge_index, num_nodes=data.x.size(0))
@@ -98,6 +98,5 @@ def call(data, arg, d_input, d_output, **kwargs):
     w_mul = torch.tensor(w_mul, dtype=torch.float).to(device)
     model = CGNN(d_input, d_output, w_mul, d_hidden=d_hidden, p=dropout, **kwargs)
     data = data.to(device)
-    # model = model.to(device)
     model.to(device).reset_parameters()
     return data, model
